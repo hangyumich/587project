@@ -168,6 +168,24 @@ struct Plan
     //This is important for creating actions "with fresh variables"
     int nextVar;
     int repeat;
+
+    Plan(){
+        
+    }
+
+    Plan (const Plan& p){
+        generation = p.generation;
+        connection = p.connection;
+        momentum = p.momentum;
+        steps = p.steps;
+        realOrder = p.realOrder;
+        links = p.links;
+        threats = p.threats;
+        open = p.open;
+        orderings = p.orderings;
+        nextVar = p.nextVar;
+        repeat = p.repeat;
+    }
 };
 
 struct openCmp
@@ -192,13 +210,13 @@ struct openCmp
 struct planCmp
 {
     planCmp() {}
-    bool operator()(const Plan& p1, const Plan& p2) const
+    bool operator()(Plan* p1, Plan*  p2) const
     {
-        float v1 = p1.repeat + p1.threats.size() + p1.steps.size() + 1.5 * p1.open.size();
-        float v2 = 1.5 * p2.open.size() + p2.steps.size() + p2.threats.size() + p1.repeat;
+        float v1 = p1->repeat + p1->threats.size() + p1->steps.size() + 1.5 * p1->open.size();
+        float v2 = 1.5 * p2->open.size() + p2->steps.size() + p2->threats.size() + p1->repeat;
         if(v1 != v2)
             return  v1 < v2;
-        return v1 - p1.connection < v2 - p2.connection;
+        return v1 - p1->connection < v2 - p2->connection;
     }
 };
 

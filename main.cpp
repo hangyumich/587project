@@ -19,14 +19,14 @@
 using namespace std;
 
 void planSearch();
-deque<Plan> pq;
+deque<Plan*> pq;
 omp_lock_t queue_l;
 omp_lock_t exit_l;
 omp_lock_t tracker_l;
 bool whether_exit = false;
-Plan strategy;
+Plan* strategy;
 int effortLimit = 0;
-VariableTracker vt(99);
+
 
 
 int main(int argc, const char * argv[])
@@ -110,17 +110,17 @@ int main(int argc, const char * argv[])
     
     //initiate everything
     vector<float> momentum = newM.map2Momentum(goals, false);
-    Plan p;
-    p.connection = 0;
-    p.steps.push_back(first);
-    p.steps.push_back(last);
-    p.realOrder.resize(0);
-    p.realOrder.push_back(0);
-    p.realOrder.push_back(1);
+    Plan* p = new Plan();
+    p->connection = 0;
+    p->steps.push_back(first);
+    p->steps.push_back(last);
+    p->realOrder.resize(0);
+    p->realOrder.push_back(0);
+    p->realOrder.push_back(1);
     for(auto goal: goals)
-        p.open.push_back(make_pair(goal, 1));
-    p.orderings.insert(Ordering(0,1));
-    p.nextVar = vt.getFirstVar();
+        p->open.push_back(make_pair(goal, 1));
+    p->orderings.insert(Ordering(0,1));
+    p->nextVar = 100;
     //begin search for solution
     
     try
@@ -133,7 +133,7 @@ int main(int argc, const char * argv[])
         pq.push_back(p);
 
         double delay = omp_get_wtime();
-        #pragma omp parallel 
+        #pragma omp parallel num_threads(1)
         {
             planSearch();
         }
@@ -148,7 +148,7 @@ int main(int argc, const char * argv[])
 //        printPlan(strategy, vt, cout);
 //        for(auto step: strategy.realOrder)
 //            cout << step << endl;
-        cout << "I'm a smart robot and I find your sokoban problem solution in " << strategy.generation << " times' search\n";
+        cout << "I'm a smart robot and I find your sokoban problem solution in " << strategy->generation << " times' search\n";
     }
     catch(int notfind)
     {
@@ -172,7 +172,7 @@ void planSearch()
         omp_unset_lock(&exit_l);
 
         omp_set_lock(&queue_l);
-        Plan p;
+        Plan* p;
         if(!pq.empty()){
             p = pq[0];
             pq.pop_front();
@@ -184,18 +184,19 @@ void planSearch()
         omp_unset_lock(&queue_l);
 
 
-//        cout << omp_get_thread_num() << " " << effortLimit << endl;
+       cout << omp_get_thread_num() << " " << effortLimit << endl;
 
 
-        if(p.open.empty() && p.threats.empty() && isOrderConsistent(p.orderings, int(p.steps.size())))
+        if(p->open.empty() && p->threats.empty() && isOrderConsistent(p->orderings, int(p->steps.size())))
         {
-            p.realOrder = topSort(p.orderings, int(p.steps.size())).first;
+            p->realOrder = topSort(p->orderings, int(p->steps.size())).first;
             
             omp_set_lock(&exit_l);
             strategy = p;
             whether_exit = true;
             omp_unset_lock(&exit_l);
 
+            delete p;
             break;
         }
 
@@ -203,70 +204,73 @@ void planSearch()
 
         effortLimit++;
 
-        if(!isOrderConsistent(p.orderings, int(p.steps.size())))
+        if(!isOrderConsistent(p->orderings, int(p->steps.size()))){
+            delete p;
             continue;
+        }
 
-        p.realOrder = topSort(p.orderings, int(p.steps.size())).first;
-        p.connection = 0;
-        for(int i = 0; i < p.steps.size() - 1; ++i)
-            if(p.steps[p.realOrder[i]].args[1] == p.steps[p.realOrder[i + 1]].args[0])
-                p.connection += 1;
+        p->realOrder = topSort(p->orderings, int(p->steps.size())).first;
+        p->connection = 0;
+        for(int i = 0; i < p->steps.size() - 1; ++i)
+            if(p->steps[p->realOrder[i]].args[1] == p->steps[p->realOrder[i + 1]].args[0])
+                p->connection += 1;
 
         openCmp cp;
-        cp.plan = &p;
-        stable_sort(p.open.begin(), p.open.end(), cp);
+        cp.plan = p;
+        stable_sort(p->open.begin(), p->open.end(), cp);
 
         //case 1 no action adding, only add order based on threats
-        if(!p.threats.empty())
+        if(!p->threats.empty())
         {
-            if(p.threats.begin()->threatened.causalStep != 0)
+            if(p->threats.begin()->threatened.causalStep != 0)
             {
-                auto temp = p;
-                temp.orderings.insert(make_pair(temp.threats.begin()->actionId, temp.threats.begin()->threatened.causalStep));
-                temp.threats.erase(temp.threats.begin());
-                temp.generation = effortLimit;
+                auto temp = new Plan(*p);
+                temp->orderings.insert(make_pair(temp->threats.begin()->actionId, temp->threats.begin()->threatened.causalStep));
+                temp->threats.erase(temp->threats.begin());
+                temp->generation = effortLimit;
 
                 omp_set_lock(&queue_l);
                 pq.push_back(temp);
                 omp_unset_lock(&queue_l);
             }
-            if(p.threats.begin()->threatened.recipientStep != 1)
+            if(p->threats.begin()->threatened.recipientStep != 1)
             {
-                auto temp = p;
-                temp.orderings.insert(make_pair(temp.threats.begin()->threatened.recipientStep, temp.threats.begin()->actionId));
-                temp.threats.erase(temp.threats.begin());
-                temp.generation = effortLimit;
+                auto temp = new Plan(*p);
+                temp->orderings.insert(make_pair(temp->threats.begin()->threatened.recipientStep, temp->threats.begin()->actionId));
+                temp->threats.erase(temp->threats.begin());
+                temp->generation = effortLimit;
 
                 omp_set_lock(&queue_l);
                 pq.push_back(temp);
                 omp_unset_lock(&queue_l);
             }
-
+            delete p;
             continue;
         }//case 1 finish
 
         //case 2 solve one open condition by unify already existing action
-        if(!p.open.empty())
+        if(!p->open.empty())
         {
             //case 2.1 use already exist action
-            if(p.steps.size() >= 2)
+            if(p->steps.size() >= 2)
             {
-                for(unsigned i = 0; i < p.steps.size(); ++i)
+                for(unsigned i = 0; i < p->steps.size(); ++i)
                 {
-                    omp_set_lock(&tracker_l);
-                    auto unifyList = p.steps[i].adds(p.open[0].first, vt);
-                    omp_unset_lock(&tracker_l);
+
+                    VariableTracker vt(100);
+                    auto unifyList = p->steps[i].adds(p->open[0].first, vt);
+
                     if(!unifyList.empty())  
                     {
                         for(auto onePossible: unifyList)
                         {
                             try
                             {
-                                auto tempPlan = p;
-                                auto tempOpen = p.open[0];
-                                tempPlan.links.push_back(Link(tempOpen.first, i, tempOpen.second));
-                                tempPlan.open.erase(tempPlan.open.begin());
-                                tempPlan.orderings.insert(make_pair(i, tempOpen.second));
+                                auto tempPlan = new Plan(*p);
+                                auto tempOpen = p->open[0];
+                                tempPlan->links.push_back(Link(tempOpen.first, i, tempOpen.second));
+                                tempPlan->open.erase(tempPlan->open.begin());
+                                tempPlan->orderings.insert(make_pair(i, tempOpen.second));
 
                                 for(auto bind: onePossible)
                                 {
@@ -276,7 +280,7 @@ void planSearch()
                                         /*
                                         if(tracker.isLiteral(bind.second))
                                             tempPlan.momentum += momentum[bind.second];*/
-                                        for(auto& eachAction: tempPlan.steps)
+                                        for(auto& eachAction: tempPlan->steps)
                                         {
                                             eachAction.substitute(bind.first, bind.second);
                                             if(eachAction.args[0] == eachAction.args[1])
@@ -284,17 +288,17 @@ void planSearch()
                                                 throw 1;
                                             }
                                         }
-                                        for(auto link: tempPlan.links)
-                                            if(tempPlan.steps[link.causalStep].prepost(tempPlan.steps[link.recipientStep]))
+                                        for(auto link: tempPlan->links)
+                                            if(tempPlan->steps[link.causalStep].prepost(tempPlan->steps[link.recipientStep]))
                                                 throw 3;
-                                        for(auto& link: tempPlan.links)
+                                        for(auto& link: tempPlan->links)
                                         {
                                             link.pred.arg_[0] = (link.pred.arg_[0] == bind.first) ? bind.second : link.pred.arg_[0];
                                             link.pred.arg_[1] = (link.pred.arg_[1] == bind.first) ? bind.second : link.pred.arg_[1];
                                             link.pred.arg_[2] = (link.pred.arg_[2] == bind.first) ? bind.second : link.pred.arg_[2];
                                             
                                         }
-                                        for(auto& openP: tempPlan.open)
+                                        for(auto& openP: tempPlan->open)
                                         {
                                             openP.first.arg_[0] = (openP.first.arg_[0] == bind.first) ? bind.second : openP.first.arg_[0];
                                             openP.first.arg_[1] = (openP.first.arg_[1] == bind.first) ? bind.second : openP.first.arg_[1];
@@ -304,24 +308,24 @@ void planSearch()
                                 }
 
                                 //add threats
-                                for(unsigned k = 0; k < tempPlan.steps.size(); ++k)
+                                for(unsigned k = 0; k < tempPlan->steps.size(); ++k)
                                 {
-                                    for(unsigned t = 0; t < tempPlan.links.size(); ++t)
+                                    for(unsigned t = 0; t < tempPlan->links.size(); ++t)
                                     {
-                                        auto possible1 = make_pair(int(k), tempPlan.links[t].causalStep);
-                                        auto possible2 = make_pair(tempPlan.links[t].recipientStep, int(k));
-                                        if(tempPlan.steps[k].deletes(tempPlan.links[t].pred)
-                                           && tempPlan.links[t].recipientStep != k
-                                           && find(tempPlan.orderings.begin(), tempPlan.orderings.end(), possible1) == tempPlan.orderings.end()
-                                           && find(tempPlan.orderings.begin(), tempPlan.orderings.end(), possible2) == tempPlan.orderings.end())
-                                            tempPlan.threats.insert(Threat(tempPlan.links[t], k));
+                                        auto possible1 = make_pair(int(k), tempPlan->links[t].causalStep);
+                                        auto possible2 = make_pair(tempPlan->links[t].recipientStep, int(k));
+                                        if(tempPlan->steps[k].deletes(tempPlan->links[t].pred)
+                                           && tempPlan->links[t].recipientStep != k
+                                           && find(tempPlan->orderings.begin(), tempPlan->orderings.end(), possible1) == tempPlan->orderings.end()
+                                           && find(tempPlan->orderings.begin(), tempPlan->orderings.end(), possible2) == tempPlan->orderings.end())
+                                            tempPlan->threats.insert(Threat(tempPlan->links[t], k));
                                     }
                                 }
                                 
-                                for(auto threat: tempPlan.threats)
+                                for(auto threat: tempPlan->threats)
                                 {
                                     bool abandon = false;
-                                    for(auto order: p.orderings)
+                                    for(auto order: p->orderings)
                                         if(order.first == threat.actionId && order.second == threat.threatened.recipientStep && threat.threatened.causalStep == 0)
                                         {
                                             abandon = true;
@@ -330,30 +334,30 @@ void planSearch()
                                     if(abandon) throw 9;
                                 }
                                 
-                                tempPlan.repeat = 0;
+                                tempPlan->repeat = 0;
                                 
-                                for(auto link: tempPlan.links)
+                                for(auto link: tempPlan->links)
                                 {
                                     if(link.causalStep != 0 && link.recipientStep != 1)
                                     {
-                                        for(auto l: tempPlan.links)
-                                            if(l.causalStep == link.recipientStep && tempPlan.steps[l.recipientStep].reverseEqual(tempPlan.steps[link.causalStep]))
+                                        for(auto l: tempPlan->links)
+                                            if(l.causalStep == link.recipientStep && tempPlan->steps[l.recipientStep].reverseEqual(tempPlan->steps[link.causalStep]))
                                             {
                                                 throw 5;
                                             }
                                     }
                                 }
                                 
-                                for(unsigned i = 0; i < tempPlan.steps.size(); ++i)
+                                for(unsigned i = 0; i < tempPlan->steps.size(); ++i)
                                 {
-                                    for(unsigned j = i; j < tempPlan.steps.size(); ++j)
+                                    for(unsigned j = i; j < tempPlan->steps.size(); ++j)
                                     {
-                                        if(tempPlan.steps[i].reverseEqual(tempPlan.steps[j]))
-                                            tempPlan.repeat++;
+                                        if(tempPlan->steps[i].reverseEqual(tempPlan->steps[j]))
+                                            tempPlan->repeat++;
                                     }
                                 }
                                 
-                                tempPlan.generation = effortLimit;
+                                tempPlan->generation = effortLimit;
 
                                 omp_set_lock(&queue_l);
                                 pq.push_back(tempPlan);
@@ -366,15 +370,15 @@ void planSearch()
                         }//one possible unification
                     }//if can add
                     //only start can possiblly add these predicates
-                    if(p.open[0].first.type_ == Linear || p.open[0].first.type_ == Next)
+                    if(p->open[0].first.type_ == Linear || p->open[0].first.type_ == Next)
                         break;
                 }//for each action see if it can add open[0]
             }//case 2.1 finish
 
             //case 2.2 add new action
-            auto considerOpen = p.open[0];
-            auto tempPlan = p;
-            auto tempPlan1 = p;
+            auto considerOpen = p->open[0];
+            auto tempPlan = new Plan(*p);
+            auto tempPlan1 = new Plan(*p);
             bool twoActions = false;
             Action newAction(GO, 0, -1);
             Action newAction1(GO, 0, -1);
@@ -382,14 +386,14 @@ void planSearch()
             {
                 case Robot:
                 {
-                    newAction = Action(GO, tempPlan.nextVar++, considerOpen.first.arg_[0]);
+                    newAction = Action(GO, tempPlan->nextVar++, considerOpen.first.arg_[0]);
                     //newAction1 = Action(PUSH, tempPlan1.nextVar++, considerOpen.first.arg_[0], tempPlan1.nextVar++);
                     //twoActions = true;
                     break;
                 }
                 case Empty:
                 {
-                    newAction = Action(PUSH, tempPlan.nextVar++, considerOpen.first.arg_[0], tempPlan.nextVar++);
+                    newAction = Action(PUSH, tempPlan->nextVar++, considerOpen.first.arg_[0], tempPlan->nextVar++);
                     //newAction1 = Action(GO, considerOpen.first.arg_[0], tempPlan1.nextVar++); no need this, robot
                     //move shouldn't be a source of Empty predicate
                     //twoActions = true;
@@ -397,40 +401,42 @@ void planSearch()
                 }
                 case Box:
                 {
-                    newAction = Action(PUSH, tempPlan.nextVar++, tempPlan.nextVar++, considerOpen.first.arg_[0]);
+                    newAction = Action(PUSH, tempPlan->nextVar++, tempPlan->nextVar++, considerOpen.first.arg_[0]);
                     break;
                 }
-                default:
+                default:{
+                    delete p;
                     continue;
+                }
             }
-            tempPlan.open.erase(tempPlan.open.begin());
-            int numStep = int(tempPlan.steps.size());
+            tempPlan->open.erase(tempPlan->open.begin());
+            int numStep = int(tempPlan->steps.size());
             for(auto pre: newAction.getPrereqs())
-                tempPlan.open.push_back(make_pair(pre, numStep));
-            tempPlan.steps.push_back(newAction);
-            for(auto link: tempPlan.links)
+                tempPlan->open.push_back(make_pair(pre, numStep));
+            tempPlan->steps.push_back(newAction);
+            for(auto link: tempPlan->links)
             {
-                auto possible1 = make_pair(int(tempPlan.steps.size() - 1), link.causalStep);
-                auto possible2 = make_pair(link.recipientStep, int(tempPlan.steps.size() - 1));
-                if(newAction.deletes(link.pred) && link.recipientStep != tempPlan.steps.size() - 1
-                   && find(tempPlan.orderings.begin(), tempPlan.orderings.end(), possible1) == tempPlan.orderings.end()
-                   && find(tempPlan.orderings.begin(), tempPlan.orderings.end(), possible2) == tempPlan.orderings.end())
-                    tempPlan.threats.insert(Threat(link, int(tempPlan.steps.size() - 1)));
+                auto possible1 = make_pair(int(tempPlan->steps.size() - 1), link.causalStep);
+                auto possible2 = make_pair(link.recipientStep, int(tempPlan->steps.size() - 1));
+                if(newAction.deletes(link.pred) && link.recipientStep != tempPlan->steps.size() - 1
+                   && find(tempPlan->orderings.begin(), tempPlan->orderings.end(), possible1) == tempPlan->orderings.end()
+                   && find(tempPlan->orderings.begin(), tempPlan->orderings.end(), possible2) == tempPlan->orderings.end())
+                    tempPlan->threats.insert(Threat(link, int(tempPlan->steps.size() - 1)));
             }
-            tempPlan.links.push_back(Link(considerOpen.first, numStep, considerOpen.second));
-            for(unsigned k = 0; k < tempPlan.steps.size() - 1; ++k)
+            tempPlan->links.push_back(Link(considerOpen.first, numStep, considerOpen.second));
+            for(unsigned k = 0; k < tempPlan->steps.size() - 1; ++k)
             {
-                auto possible1 = make_pair(int(k), tempPlan.links.back().causalStep);
-                auto possible2 = make_pair(tempPlan.links.back().recipientStep, int(k));
-                if(tempPlan.steps[k].deletes(considerOpen.first) && tempPlan.links.back().recipientStep != k
-                   && find(tempPlan.orderings.begin(), tempPlan.orderings.end(), possible1) == tempPlan.orderings.end()
-                   && find(tempPlan.orderings.begin(), tempPlan.orderings.end(), possible2) == tempPlan.orderings.end())
-                    tempPlan.threats.insert(Threat(tempPlan.links.back(), k));
+                auto possible1 = make_pair(int(k), tempPlan->links.back().causalStep);
+                auto possible2 = make_pair(tempPlan->links.back().recipientStep, int(k));
+                if(tempPlan->steps[k].deletes(considerOpen.first) && tempPlan->links.back().recipientStep != k
+                   && find(tempPlan->orderings.begin(), tempPlan->orderings.end(), possible1) == tempPlan->orderings.end()
+                   && find(tempPlan->orderings.begin(), tempPlan->orderings.end(), possible2) == tempPlan->orderings.end())
+                    tempPlan->threats.insert(Threat(tempPlan->links.back(), k));
             }
-            tempPlan.orderings.insert(make_pair(numStep, considerOpen.second));
-            tempPlan.orderings.insert(make_pair(numStep, 1));
-            tempPlan.orderings.insert(make_pair(0, numStep));
-            tempPlan.generation = effortLimit;
+            tempPlan->orderings.insert(make_pair(numStep, considerOpen.second));
+            tempPlan->orderings.insert(make_pair(numStep, 1));
+            tempPlan->orderings.insert(make_pair(0, numStep));
+            tempPlan->generation = effortLimit;
             
             omp_set_lock(&queue_l);
             pq.push_back(tempPlan);
@@ -440,34 +446,34 @@ void planSearch()
             //have two possible actions
             if(twoActions)
             {
-                tempPlan1.open.erase(tempPlan1.open.begin());
-                    int numStep = int(tempPlan1.steps.size());
+                tempPlan1->open.erase(tempPlan1->open.begin());
+                    int numStep = int(tempPlan1->steps.size());
                     for(auto pre: newAction1.getPrereqs())
-                        tempPlan1.open.push_back(make_pair(pre, numStep));
-                    tempPlan1.steps.push_back(newAction1);
-                    tempPlan1.orderings.insert(make_pair(numStep, considerOpen.second));
-                    tempPlan1.orderings.insert(make_pair(numStep, 1));
-                    tempPlan1.orderings.insert(make_pair(0, numStep));
-                    for(auto link: tempPlan1.links)
+                        tempPlan1->open.push_back(make_pair(pre, numStep));
+                    tempPlan1->steps.push_back(newAction1);
+                    tempPlan1->orderings.insert(make_pair(numStep, considerOpen.second));
+                    tempPlan1->orderings.insert(make_pair(numStep, 1));
+                    tempPlan1->orderings.insert(make_pair(0, numStep));
+                    for(auto link: tempPlan1->links)
                     {
-                        auto possible1 = make_pair(int(tempPlan1.steps.size() - 1), link.causalStep);
-                        auto possible2 = make_pair(link.recipientStep, int(tempPlan1.steps.size() - 1));
-                        if(newAction1.deletes(link.pred) && link.recipientStep != tempPlan1.steps.size() - 1
-                           && find(tempPlan1.orderings.begin(), tempPlan1.orderings.end(), possible1) == tempPlan1.orderings.end()
-                           && find(tempPlan1.orderings.begin(), tempPlan1.orderings.end(), possible2) == tempPlan1.orderings.end())
-                            tempPlan1.threats.insert(Threat(link, int(tempPlan1.steps.size() - 1)));
+                        auto possible1 = make_pair(int(tempPlan1->steps.size() - 1), link.causalStep);
+                        auto possible2 = make_pair(link.recipientStep, int(tempPlan1->steps.size() - 1));
+                        if(newAction1.deletes(link.pred) && link.recipientStep != tempPlan1->steps.size() - 1
+                           && find(tempPlan1->orderings.begin(), tempPlan1->orderings.end(), possible1) == tempPlan1->orderings.end()
+                           && find(tempPlan1->orderings.begin(), tempPlan1->orderings.end(), possible2) == tempPlan1->orderings.end())
+                            tempPlan1->threats.insert(Threat(link, int(tempPlan1->steps.size() - 1)));
                     }
-                    tempPlan1.links.push_back(Link(considerOpen.first, numStep, considerOpen.second));
-                    for(unsigned k = 0; k < tempPlan1.steps.size() - 1; ++k)
+                    tempPlan1->links.push_back(Link(considerOpen.first, numStep, considerOpen.second));
+                    for(unsigned k = 0; k < tempPlan1->steps.size() - 1; ++k)
                     {
-                        auto possible1 = make_pair(int(k), tempPlan1.links.back().causalStep);
-                        auto possible2 = make_pair(tempPlan1.links.back().recipientStep, int(k));
-                        if(tempPlan1.steps[k].deletes(considerOpen.first) && tempPlan1.links.back().recipientStep != k
-                           && find(tempPlan1.orderings.begin(), tempPlan1.orderings.end(), possible1) == tempPlan1.orderings.end()
-                           && find(tempPlan1.orderings.begin(), tempPlan1.orderings.end(), possible2) == tempPlan1.orderings.end())
-                            tempPlan1.threats.insert(Threat(tempPlan1.links.back(), k));
+                        auto possible1 = make_pair(int(k), tempPlan1->links.back().causalStep);
+                        auto possible2 = make_pair(tempPlan1->links.back().recipientStep, int(k));
+                        if(tempPlan1->steps[k].deletes(considerOpen.first) && tempPlan1->links.back().recipientStep != k
+                           && find(tempPlan1->orderings.begin(), tempPlan1->orderings.end(), possible1) == tempPlan1->orderings.end()
+                           && find(tempPlan1->orderings.begin(), tempPlan1->orderings.end(), possible2) == tempPlan1->orderings.end())
+                            tempPlan1->threats.insert(Threat(tempPlan1->links.back(), k));
                     }
-                    tempPlan1.generation = effortLimit;
+                    tempPlan1->generation = effortLimit;
 
                     omp_set_lock(&queue_l);
                     pq.push_back(tempPlan1);
