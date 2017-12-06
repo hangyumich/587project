@@ -215,8 +215,8 @@ struct planCmp
         float v1 = p1->repeat + p1->threats.size() + p1->steps.size() + 1.5 * p1->open.size();
         float v2 = 1.5 * p2->open.size() + p2->steps.size() + p2->threats.size() + p1->repeat;
         if(v1 != v2)
-            return  v1 < v2;
-        return v1 - p1->connection < v2 - p2->connection;
+            return  v1 > v2;
+        return v1 - p1->connection > v2 - p2->connection;
     }
 };
 
