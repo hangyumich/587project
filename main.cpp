@@ -15,14 +15,16 @@
 #include <deque>
 #include <ctime>
 #include "topsort.hpp"
+#include <queue>
 
 using namespace std;
 
 void planSearch();
-deque<Plan*> pq;
+priority_queue<Plan*, vector<Plan*>, planCmp> pq;
+//deque<Plan*> pq;
 omp_lock_t queue_l;
 omp_lock_t exit_l;
-omp_lock_t tracker_l;
+
 bool whether_exit = false;
 Plan* strategy;
 int effortLimit = 0;
@@ -32,7 +34,7 @@ int effortLimit = 0;
 int main(int argc, const char * argv[])
 {
     //define the map
-    Map newM(10, 10);
+    Map newM(11, 11);
     for(unsigned i = 0; i < newM.getWidth(); ++i)
     {
         for(unsigned j = 0; j < newM.getHeight(); ++j)
@@ -46,7 +48,7 @@ int main(int argc, const char * argv[])
     newM.setPosition(3, 2, OBSTACLE);
     newM.setPosition(4, 2, BOX);
     //newM.setPosition(2, 3, BOX);
-    newM.setPosition(8, 8, ROBOT);
+    newM.setPosition(9, 9, ROBOT);
 
     newM.setPosition(8, 1, OBSTACLE);
     newM.setPosition(7, 1, OBSTACLE);
@@ -120,20 +122,20 @@ int main(int argc, const char * argv[])
     for(auto goal: goals)
         p->open.push_back(make_pair(goal, 1));
     p->orderings.insert(Ordering(0,1));
-    p->nextVar = 100;
+    p->nextVar = 121;
     //begin search for solution
     
     try
     {
         omp_init_lock(&queue_l);
         omp_init_lock(&exit_l);
-        omp_init_lock(&tracker_l);
 
 
-        pq.push_back(p);
+        pq.push(p);
+        //pq.push_back(p);
 
         double delay = omp_get_wtime();
-        #pragma omp parallel num_threads(1)
+        #pragma omp parallel num_threads(4)
         {
             planSearch();
         }
@@ -142,7 +144,6 @@ int main(int argc, const char * argv[])
         
         omp_destroy_lock(&exit_l);
         omp_destroy_lock(&queue_l);
-        omp_destroy_lock(&tracker_l);
 
 
 //        printPlan(strategy, vt, cout);
@@ -174,8 +175,11 @@ void planSearch()
         omp_set_lock(&queue_l);
         Plan* p;
         if(!pq.empty()){
-            p = pq[0];
-            pq.pop_front();
+            p = pq.top();
+             pq.pop();
+
+            //p = pq[0];
+            //pq.pop_front();
         }
         else{
             omp_unset_lock(&queue_l);
@@ -184,7 +188,7 @@ void planSearch()
         omp_unset_lock(&queue_l);
 
 
-       cout << omp_get_thread_num() << " " << effortLimit << endl;
+       //cout << omp_get_thread_num() << " " << effortLimit << endl;
 
 
         if(p->open.empty() && p->threats.empty() && isOrderConsistent(p->orderings, int(p->steps.size())))
@@ -230,7 +234,8 @@ void planSearch()
                 temp->generation = effortLimit;
 
                 omp_set_lock(&queue_l);
-                pq.push_back(temp);
+                pq.push(temp);
+                //pq.push_back(temp);
                 omp_unset_lock(&queue_l);
             }
             if(p->threats.begin()->threatened.recipientStep != 1)
@@ -241,7 +246,8 @@ void planSearch()
                 temp->generation = effortLimit;
 
                 omp_set_lock(&queue_l);
-                pq.push_back(temp);
+                pq.push(temp);
+                //pq.push_back(temp);
                 omp_unset_lock(&queue_l);
             }
             delete p;
@@ -257,7 +263,7 @@ void planSearch()
                 for(unsigned i = 0; i < p->steps.size(); ++i)
                 {
 
-                    VariableTracker vt(100);
+                    VariableTracker vt(121);
                     auto unifyList = p->steps[i].adds(p->open[0].first, vt);
 
                     if(!unifyList.empty())  
@@ -360,7 +366,8 @@ void planSearch()
                                 tempPlan->generation = effortLimit;
 
                                 omp_set_lock(&queue_l);
-                                pq.push_back(tempPlan);
+                                pq.push(tempPlan);
+                                //pq.push_back(tempPlan);
                                 omp_unset_lock(&queue_l);
                             }//get rid of not moving action
                             catch(int notMoving)
@@ -439,7 +446,8 @@ void planSearch()
             tempPlan->generation = effortLimit;
             
             omp_set_lock(&queue_l);
-            pq.push_back(tempPlan);
+            pq.push(tempPlan);
+            //pq.push_back(tempPlan);
             omp_unset_lock(&queue_l);
 
             
@@ -476,16 +484,17 @@ void planSearch()
                     tempPlan1->generation = effortLimit;
 
                     omp_set_lock(&queue_l);
-                    pq.push_back(tempPlan1);
+                    pq.push(tempPlan1);
+                    //pq.push_back(tempPlan1);
                     omp_unset_lock(&queue_l);
             }
         }//case 2 finish
         
         
-        omp_set_lock(&queue_l);
-        planCmp pCmp;
-        stable_sort(pq.begin(), pq.end(), pCmp);
-        omp_unset_lock(&queue_l);
+        // omp_set_lock(&queue_l);
+        // planCmp pCmp;
+        // stable_sort(pq.begin(), pq.end(), pCmp);
+        // omp_unset_lock(&queue_l);
     }//priority depth first search
 }
 
