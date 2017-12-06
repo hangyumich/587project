@@ -133,7 +133,7 @@ int main(int argc, const char * argv[])
         pq.push_back(p);
 
         double delay = omp_get_wtime();
-        #pragma omp parallel num_threads(1)
+        #pragma omp parallel
         {
             planSearch();
         }
