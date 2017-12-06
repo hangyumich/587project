@@ -34,7 +34,7 @@ int effortLimit = 0;
 int main(int argc, const char * argv[])
 {
     //define the map
-    Map newM(10, 10);
+    Map newM(11, 11);
     for(unsigned i = 0; i < newM.getWidth(); ++i)
     {
         for(unsigned j = 0; j < newM.getHeight(); ++j)
@@ -48,7 +48,7 @@ int main(int argc, const char * argv[])
     newM.setPosition(3, 2, OBSTACLE);
     newM.setPosition(4, 2, BOX);
     //newM.setPosition(2, 3, BOX);
-    newM.setPosition(8, 8, ROBOT);
+    newM.setPosition(9, 9, ROBOT);
 
     newM.setPosition(8, 1, OBSTACLE);
     newM.setPosition(7, 1, OBSTACLE);
@@ -122,7 +122,7 @@ int main(int argc, const char * argv[])
     for(auto goal: goals)
         p->open.push_back(make_pair(goal, 1));
     p->orderings.insert(Ordering(0,1));
-    p->nextVar = 100;
+    p->nextVar = 121;
     //begin search for solution
     
     try
@@ -263,7 +263,7 @@ void planSearch()
                 for(unsigned i = 0; i < p->steps.size(); ++i)
                 {
 
-                    VariableTracker vt(100);
+                    VariableTracker vt(121);
                     auto unifyList = p->steps[i].adds(p->open[0].first, vt);
 
                     if(!unifyList.empty())  
