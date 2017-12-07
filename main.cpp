@@ -32,6 +32,7 @@ int effortLimit = 0;
 
 double push_delay = 0;
 double case_delay = 0;
+double sort_delay = 0;
 
 int main(int argc, const char * argv[])
 {
@@ -138,7 +139,7 @@ int main(int argc, const char * argv[])
 
         double delay = omp_get_wtime();
 
-        #pragma omp parallel num_threads(1)
+        #pragma omp parallel
         {
             planSearch();
         }
@@ -197,6 +198,7 @@ void planSearch()
 
        //cout << omp_get_thread_num() << " " << effortLimit << endl;
 
+        double sort_stime = omp_get_wtime();
 
         if(p->open.empty() && p->threats.empty() && isOrderConsistent(p->orderings, int(p->steps.size())))
         {
@@ -229,7 +231,8 @@ void planSearch()
         openCmp cp;
         cp.plan = p;
         stable_sort(p->open.begin(), p->open.end(), cp);
-    
+        sort_delay += omp_get_wtime() - sort_stime;
+
         double start_time = omp_get_wtime();
         //case 1 no action adding, only add order based on threats
         if(!p->threats.empty())
