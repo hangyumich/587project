@@ -145,8 +145,8 @@ int main(int argc, const char * argv[])
         }
         cout << "The delay is " << omp_get_wtime()-delay << endl;
         cout << "The push_elay is " << push_delay << endl;
-        cout << "The case delay is" << case_delay << endl;
-
+        cout << "The case delay is " << case_delay << endl;
+        cout << "the sort delay is " << sort_delay << endl;
         
         omp_destroy_lock(&exit_l);
         omp_destroy_lock(&queue_l);
