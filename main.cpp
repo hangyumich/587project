@@ -21,6 +21,7 @@ using namespace std;
 
 void planSearch();
 priority_queue<Plan*, vector<Plan*>, planCmp> pq;
+//queue<Plan*> pq;
 //deque<Plan*> pq;
 omp_lock_t queue_l;
 omp_lock_t exit_l;
@@ -29,12 +30,12 @@ bool whether_exit = false;
 Plan* strategy;
 int effortLimit = 0;
 
-
+double push_delay = 0;
 
 int main(int argc, const char * argv[])
 {
     //define the map
-    Map newM(11, 11);
+    Map newM(11,11);
     for(unsigned i = 0; i < newM.getWidth(); ++i)
     {
         for(unsigned j = 0; j < newM.getHeight(); ++j)
@@ -50,9 +51,9 @@ int main(int argc, const char * argv[])
     //newM.setPosition(2, 3, BOX);
     newM.setPosition(9, 9, ROBOT);
 
-    newM.setPosition(8, 1, OBSTACLE);
     newM.setPosition(7, 1, OBSTACLE);
-    //newM.setPosition(3, 6, OBSTACLE);
+    newM.setPosition(7, 1, OBSTACLE);
+    newM.setPosition(3, 6, OBSTACLE);
     newM.setPosition(3, 5, OBSTACLE);
     newM.setPosition(3, 4, OBSTACLE);
     newM.setPosition(3, 3, OBSTACLE);
@@ -122,7 +123,7 @@ int main(int argc, const char * argv[])
     for(auto goal: goals)
         p->open.push_back(make_pair(goal, 1));
     p->orderings.insert(Ordering(0,1));
-    p->nextVar = 121;
+    p->nextVar =121;
     //begin search for solution
     
     try
@@ -135,11 +136,14 @@ int main(int argc, const char * argv[])
         //pq.push_back(p);
 
         double delay = omp_get_wtime();
-        #pragma omp parallel
+
+        #pragma omp parallel num_threads(1)
         {
             planSearch();
         }
         cout << "The delay is " << omp_get_wtime()-delay << endl;
+        cout << "The push_elay is " << push_delay << endl;
+
 
         
         omp_destroy_lock(&exit_l);
@@ -175,8 +179,10 @@ void planSearch()
         omp_set_lock(&queue_l);
         Plan* p;
         if(!pq.empty()){
+            double t = omp_get_wtime();
             p = pq.top();
-             pq.pop();
+            pq.pop();
+            push_delay = omp_get_wtime()-t+push_delay;
 
             //p = pq[0];
             //pq.pop_front();
@@ -234,7 +240,9 @@ void planSearch()
                 temp->generation = effortLimit;
 
                 omp_set_lock(&queue_l);
+                double t = omp_get_wtime();
                 pq.push(temp);
+                push_delay = omp_get_wtime()-t + push_delay;
                 //pq.push_back(temp);
                 omp_unset_lock(&queue_l);
             }
@@ -246,8 +254,10 @@ void planSearch()
                 temp->generation = effortLimit;
 
                 omp_set_lock(&queue_l);
+                double t = omp_get_wtime();
                 pq.push(temp);
                 //pq.push_back(temp);
+                push_delay = omp_get_wtime()-t + push_delay;
                 omp_unset_lock(&queue_l);
             }
             delete p;
@@ -366,8 +376,10 @@ void planSearch()
                                 tempPlan->generation = effortLimit;
 
                                 omp_set_lock(&queue_l);
+                                double t = omp_get_wtime();
                                 pq.push(tempPlan);
                                 //pq.push_back(tempPlan);
+                                push_delay = omp_get_wtime()-t + push_delay;
                                 omp_unset_lock(&queue_l);
                             }//get rid of not moving action
                             catch(int notMoving)
@@ -446,8 +458,10 @@ void planSearch()
             tempPlan->generation = effortLimit;
             
             omp_set_lock(&queue_l);
+            double o = omp_get_wtime();
             pq.push(tempPlan);
             //pq.push_back(tempPlan);
+            push_delay = omp_get_wtime() -o + push_delay;
             omp_unset_lock(&queue_l);
 
             
@@ -484,8 +498,10 @@ void planSearch()
                     tempPlan1->generation = effortLimit;
 
                     omp_set_lock(&queue_l);
+                    double t = omp_get_wtime();
                     pq.push(tempPlan1);
                     //pq.push_back(tempPlan1);
+                    push_delay = push_delay + omp_get_wtime() - t;
                     omp_unset_lock(&queue_l);
             }
         }//case 2 finish
