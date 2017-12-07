@@ -254,13 +254,14 @@ void planSearch()
                 temp->orderings.insert(make_pair(temp->threats.begin()->threatened.recipientStep, temp->threats.begin()->actionId));
                 temp->threats.erase(temp->threats.begin());
                 temp->generation = effortLimit;
-
-                omp_set_lock(&queue_l);
+                
                 double t = omp_get_wtime();
+                omp_set_lock(&queue_l);
                 pq.push(temp);
                 //pq.push_back(temp);
-                push_delay = omp_get_wtime()-t + push_delay;
                 omp_unset_lock(&queue_l);
+                push_delay = omp_get_wtime()-t + push_delay;
+
             }
             delete p;
             case_delay += omp_get_wtime() - start_time;
@@ -378,12 +379,12 @@ void planSearch()
                                 
                                 tempPlan->generation = effortLimit;
 
-                                omp_set_lock(&queue_l);
                                 double t = omp_get_wtime();
+                                omp_set_lock(&queue_l);
                                 pq.push(tempPlan);
                                 //pq.push_back(tempPlan);
-                                push_delay = omp_get_wtime()-t + push_delay;
                                 omp_unset_lock(&queue_l);
+                                push_delay = omp_get_wtime()-t + push_delay;
                             }//get rid of not moving action
                             catch(int notMoving)
                             {                                
@@ -460,12 +461,12 @@ void planSearch()
             tempPlan->orderings.insert(make_pair(0, numStep));
             tempPlan->generation = effortLimit;
             
-            omp_set_lock(&queue_l);
             double o = omp_get_wtime();
+            omp_set_lock(&queue_l);
             pq.push(tempPlan);
             //pq.push_back(tempPlan);
-            push_delay = omp_get_wtime() -o + push_delay;
             omp_unset_lock(&queue_l);
+            push_delay = omp_get_wtime() -o + push_delay;
 
             
             //have two possible actions
@@ -500,12 +501,12 @@ void planSearch()
                     }
                     tempPlan1->generation = effortLimit;
 
-                    omp_set_lock(&queue_l);
                     double t = omp_get_wtime();
+                    omp_set_lock(&queue_l);
                     pq.push(tempPlan1);
                     //pq.push_back(tempPlan1);
-                    push_delay = push_delay + omp_get_wtime() - t;
                     omp_unset_lock(&queue_l);
+                    push_delay = push_delay + omp_get_wtime() - t;
             }
         }//case 2 finish
         case_delay += omp_get_wtime() - start_time;
