@@ -31,6 +31,7 @@ Plan* strategy;
 int effortLimit = 0;
 
 double push_delay = 0;
+double case_delay = 0;
 
 int main(int argc, const char * argv[])
 {
@@ -143,7 +144,7 @@ int main(int argc, const char * argv[])
         }
         cout << "The delay is " << omp_get_wtime()-delay << endl;
         cout << "The push_elay is " << push_delay << endl;
-
+        cout << "The case delay is" << case_delay << endl;
 
         
         omp_destroy_lock(&exit_l);
@@ -228,7 +229,8 @@ void planSearch()
         openCmp cp;
         cp.plan = p;
         stable_sort(p->open.begin(), p->open.end(), cp);
-
+    
+        double start_time = omp_get_wtime();
         //case 1 no action adding, only add order based on threats
         if(!p->threats.empty())
         {
@@ -261,6 +263,7 @@ void planSearch()
                 omp_unset_lock(&queue_l);
             }
             delete p;
+            case_delay += omp_get_wtime() - start_time;
             continue;
         }//case 1 finish
 
@@ -505,8 +508,8 @@ void planSearch()
                     omp_unset_lock(&queue_l);
             }
         }//case 2 finish
-        
-        
+        case_delay += omp_get_wtime() - start_time;
+
         // omp_set_lock(&queue_l);
         // planCmp pCmp;
         // stable_sort(pq.begin(), pq.end(), pCmp);
