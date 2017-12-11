@@ -142,8 +142,6 @@ plan_communicator::~plan_communicator(){
 	MPI_Type_free(&mpi_open_pair);
 	MPI_Type_free(&mpi_link);
 	MPI_Type_free(&mpi_predicate);
-
-	MPI_Finalize();
 }
 
 void plan_communicator::sendPlan(int destination, Plan& p, int tag){
@@ -171,6 +169,7 @@ void plan_communicator::sendPlan(int destination, Plan& p, int tag){
 		comm_action_array[i].arg_2 = p.steps[i].args[2];
 	}
 	MPI_Isend(comm_action_array, members_info.steps_size, mpi_action, destination, tag, MPI_COMM_WORLD, &sendrequest[1]);
+	delete[] comm_action_array;
 
 
 	int* realOrder_array = new int[members_info.realOrder_size];
@@ -178,6 +177,7 @@ void plan_communicator::sendPlan(int destination, Plan& p, int tag){
 		realOrder_array[i] = p.realOrder[i];
 	}
 	MPI_Isend(realOrder_array, members_info.realOrder_size, MPI_INT, destination, tag, MPI_COMM_WORLD, &sendrequest[2]);
+	delete[] realOrder_array;
 
 
 	comm_link* comm_link_array = new comm_link[members_info.links_size];
@@ -188,6 +188,7 @@ void plan_communicator::sendPlan(int destination, Plan& p, int tag){
 		comm_link_array[i].recipientStep = p.links[i].recipientStep;
 	}
 	MPI_Isend(comm_link_array, members_info.links_size, mpi_link, destination, tag, MPI_COMM_WORLD, &sendrequest[3]);
+	delete[] comm_link_array;
 
 	comm_threat* comm_threat_array = new comm_threat[members_info.threats_size];
 	int j=0;
@@ -199,6 +200,7 @@ void plan_communicator::sendPlan(int destination, Plan& p, int tag){
 		j++;
 	}
 	MPI_Isend(comm_threat_array, members_info.threats_size, mpi_threat, destination, tag, MPI_COMM_WORLD, &sendrequest[4]);
+	delete[] comm_threat_array;
 
 
 
@@ -208,6 +210,7 @@ void plan_communicator::sendPlan(int destination, Plan& p, int tag){
 		comm_open_pair_array[i].actionId = p.open[i].second;
 	}
 	MPI_Isend(comm_open_pair_array, members_info.open_size, mpi_open_pair, destination, tag, MPI_COMM_WORLD, &sendrequest[5]);
+	delete[] comm_open_pair_array;
 
 
 	comm_order* comm_order_array = new comm_order[members_info.orderings_size];
@@ -218,6 +221,7 @@ void plan_communicator::sendPlan(int destination, Plan& p, int tag){
 		++j;
 	}
 	MPI_Isend(comm_order_array, members_info.orderings_size, mpi_order, destination, tag, MPI_COMM_WORLD, &sendrequest[6]);
+	delete[] comm_order_array; 
 }
 
 Plan* plan_communicator::recvPlan(){
