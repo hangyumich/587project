@@ -93,9 +93,9 @@ public:
 	plan_communicator();
 	~plan_communicator();
 
-	void sendPlan(int destination, Plan& p, int tag);
+	void sendPlan(int destination, int tag, Plan& p);
 
-	Plan* recvPlan();
+	Plan* recvPlan(int source, int tag);
 
 };
 

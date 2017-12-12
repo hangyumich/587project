@@ -144,7 +144,7 @@ plan_communicator::~plan_communicator(){
 	MPI_Type_free(&mpi_predicate);
 }
 
-void plan_communicator::sendPlan(int destination, Plan& p, int tag){
+void plan_communicator::sendPlan(int destination, int tag, Plan& p){
 	MPI_Request sendrequest[7];
 
 	comm_members_info members_info;
@@ -169,7 +169,7 @@ void plan_communicator::sendPlan(int destination, Plan& p, int tag){
 		comm_action_array[i].arg_2 = p.steps[i].args[2];
 	}
 	MPI_Isend(comm_action_array, members_info.steps_size, mpi_action, destination, tag, MPI_COMM_WORLD, &sendrequest[1]);
-	delete[] comm_action_array;
+	//delete[] comm_action_array;
 
 
 	int* realOrder_array = new int[members_info.realOrder_size];
@@ -177,7 +177,7 @@ void plan_communicator::sendPlan(int destination, Plan& p, int tag){
 		realOrder_array[i] = p.realOrder[i];
 	}
 	MPI_Isend(realOrder_array, members_info.realOrder_size, MPI_INT, destination, tag, MPI_COMM_WORLD, &sendrequest[2]);
-	delete[] realOrder_array;
+	//delete[] realOrder_array;
 
 
 	comm_link* comm_link_array = new comm_link[members_info.links_size];
@@ -188,7 +188,7 @@ void plan_communicator::sendPlan(int destination, Plan& p, int tag){
 		comm_link_array[i].recipientStep = p.links[i].recipientStep;
 	}
 	MPI_Isend(comm_link_array, members_info.links_size, mpi_link, destination, tag, MPI_COMM_WORLD, &sendrequest[3]);
-	delete[] comm_link_array;
+	//delete[] comm_link_array;
 
 	comm_threat* comm_threat_array = new comm_threat[members_info.threats_size];
 	int j=0;
@@ -200,7 +200,7 @@ void plan_communicator::sendPlan(int destination, Plan& p, int tag){
 		j++;
 	}
 	MPI_Isend(comm_threat_array, members_info.threats_size, mpi_threat, destination, tag, MPI_COMM_WORLD, &sendrequest[4]);
-	delete[] comm_threat_array;
+	//delete[] comm_threat_array;
 
 
 
@@ -210,7 +210,7 @@ void plan_communicator::sendPlan(int destination, Plan& p, int tag){
 		comm_open_pair_array[i].actionId = p.open[i].second;
 	}
 	MPI_Isend(comm_open_pair_array, members_info.open_size, mpi_open_pair, destination, tag, MPI_COMM_WORLD, &sendrequest[5]);
-	delete[] comm_open_pair_array;
+	//delete[] comm_open_pair_array;
 
 
 	comm_order* comm_order_array = new comm_order[members_info.orderings_size];
@@ -221,17 +221,15 @@ void plan_communicator::sendPlan(int destination, Plan& p, int tag){
 		++j;
 	}
 	MPI_Isend(comm_order_array, members_info.orderings_size, mpi_order, destination, tag, MPI_COMM_WORLD, &sendrequest[6]);
-	delete[] comm_order_array; 
+	//delete[] comm_order_array; 
 }
 
-Plan* plan_communicator::recvPlan(){
+Plan* plan_communicator::recvPlan(int source, int tag){
 	Plan* p_ptr = new Plan();
 
 	comm_members_info members_info;
 	MPI_Status status;
-	MPI_Recv(&members_info, 1, mpi_members_info, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
-	int source = status.MPI_SOURCE;
-	int tag = status.MPI_TAG;
+	MPI_Recv(&members_info, 1, mpi_members_info, source, tag, MPI_COMM_WORLD, &status);
 
 	p_ptr->generation = members_info.generation;
 	p_ptr->connection = members_info.connection;

@@ -63,7 +63,7 @@ void managerPlanSearch(priority_queue<Plan*, vector<Plan*>, planCmp>& pq, int ex
                 for(unsigned i = 0; i < p->steps.size(); ++i)
                 {
 
-                    VariableTracker vt(121);
+                    VariableTracker vt(81);
                     auto unifyList = p->steps[i].adds(p->open[0].first, vt);
 
                     if(!unifyList.empty())  
@@ -288,7 +288,7 @@ void managerPlanSearch(priority_queue<Plan*, vector<Plan*>, planCmp>& pq, int ex
 }
 
 
-bool planSearch(Plan& plan)
+bool planSearch(Plan& plan, int rank)
 {
 	priority_queue<Plan*, vector<Plan*>, planCmp> pq;
 	Plan* p_ptr = new Plan(plan);
@@ -299,13 +299,14 @@ bool planSearch(Plan& plan)
     while(!pq.empty())
     {
 
-
+cout << rank << " " <<effortLimit <<  " " <<pq.size()<<endl;
         Plan* p;
         p = pq.top();
         pq.pop();
 
         if(p->open.empty() && p->threats.empty() && isOrderConsistent(p->orderings, int(p->steps.size())))
         {
+            cout << "plan found" << endl;
             p->realOrder = topSort(p->orderings, int(p->steps.size())).first;
             delete p;
             while(!pq.empty()){
@@ -367,7 +368,7 @@ bool planSearch(Plan& plan)
                 for(unsigned i = 0; i < p->steps.size(); ++i)
                 {
 
-                    VariableTracker vt(121);
+                    VariableTracker vt(81);
                     auto unifyList = p->steps[i].adds(p->open[0].first, vt);
 
                     if(!unifyList.empty())  

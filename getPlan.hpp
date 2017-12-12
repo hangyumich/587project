@@ -12,7 +12,7 @@
 
 void managerPlanSearch(priority_queue<Plan*, vector<Plan*>, planCmp>& pq, int expected_size);
 
-bool planSearch(Plan& p);
+bool planSearch(Plan& p, int rank);
 
 
 
