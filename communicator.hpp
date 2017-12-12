@@ -40,6 +40,7 @@ typedef struct action_t {
 } comm_action;
 
 typedef struct members_information_t {
+
 	int generation;
 	int connection;
 	int nextVar;
@@ -50,6 +51,7 @@ typedef struct members_information_t {
 	int threats_size;
 	int open_size;
 	int orderings_size;
+	float momentum;
 } comm_members_info;
 
 

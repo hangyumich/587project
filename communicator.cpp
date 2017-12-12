@@ -72,9 +72,9 @@ void plan_communicator::create_mpi_action(){
 }
 
 void plan_communicator::create_mpi_members_info(){
-	int             blocklengths[10] = {1,1,1,1,1,1,1,1,1,1};
-	MPI_Datatype    types[10] = {MPI_INT, MPI_INT, MPI_INT, MPI_INT, MPI_INT, MPI_INT, MPI_INT, MPI_INT, MPI_INT, MPI_INT};
-	MPI_Aint        offsets[10];
+	int             blocklengths[11] = {1,1,1,1,1,1,1,1,1,1,1};
+	MPI_Datatype    types[11] = {MPI_INT, MPI_INT, MPI_INT, MPI_INT, MPI_INT, MPI_INT, MPI_INT, MPI_INT, MPI_INT, MPI_INT,MPI_FLOAT};
+	MPI_Aint        offsets[11];
 
 	offsets[0] = offsetof(comm_members_info, generation);
 	offsets[1] = offsetof(comm_members_info, connection);
@@ -86,8 +86,9 @@ void plan_communicator::create_mpi_members_info(){
 	offsets[7] = offsetof(comm_members_info, threats_size);
 	offsets[8] = offsetof(comm_members_info, open_size);
 	offsets[9] = offsetof(comm_members_info, orderings_size);
+	offsets[10] = offsetof(comm_members_info, momentum);
 
-	MPI_Type_create_struct(10, blocklengths, offsets, types, &mpi_members_info);
+	MPI_Type_create_struct(11, blocklengths, offsets, types, &mpi_members_info);
 	MPI_Type_commit(&mpi_members_info);	
 }
 
@@ -148,6 +149,7 @@ void plan_communicator::sendPlan(int destination, int tag, Plan& p){
 	MPI_Request sendrequest[7];
 
 	comm_members_info members_info;
+	members_info.momentum = p.momentum;
 	members_info.generation = p.generation;
 	members_info.connection = p.connection;
 	members_info.nextVar = p.nextVar;
@@ -235,6 +237,7 @@ Plan* plan_communicator::recvPlan(int source, int tag){
 	p_ptr->connection = members_info.connection;
 	p_ptr->nextVar    = members_info.nextVar;
 	p_ptr->repeat     = members_info.repeat;
+	p_ptr->momentum     = members_info.momentum;
 
 	comm_action* comm_action_array = new comm_action[members_info.steps_size];
 	MPI_Recv(comm_action_array, members_info.steps_size, mpi_action, source, tag, MPI_COMM_WORLD, &status);

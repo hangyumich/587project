@@ -288,6 +288,26 @@ void managerPlanSearch(priority_queue<Plan*, vector<Plan*>, planCmp>& pq, int ex
 }
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 bool planSearch(Plan& plan, int rank)
 {
 	priority_queue<Plan*, vector<Plan*>, planCmp> pq;
@@ -299,7 +319,8 @@ bool planSearch(Plan& plan, int rank)
     while(!pq.empty())
     {
 
-cout << rank << " " <<effortLimit <<  " " <<pq.size()<<endl;
+cout <<rank << " "<<effortLimit <<  " " <<pq.size()<<endl;
+
         Plan* p;
         p = pq.top();
         pq.pop();
@@ -307,11 +328,11 @@ cout << rank << " " <<effortLimit <<  " " <<pq.size()<<endl;
         if(p->open.empty() && p->threats.empty() && isOrderConsistent(p->orderings, int(p->steps.size())))
         {
             cout << "plan found" << endl;
-            p->realOrder = topSort(p->orderings, int(p->steps.size())).first;
-            delete p;
-            while(!pq.empty()){
-            	delete pq.top();
-            }
+            // p->realOrder = topSort(p->orderings, int(p->steps.size())).first;
+            // delete p;
+            // while(!pq.empty()){
+            // 	delete pq.top();
+            // }
             return true;
         }
 
@@ -475,7 +496,7 @@ cout << rank << " " <<effortLimit <<  " " <<pq.size()<<endl;
                             }//get rid of not moving action
                             catch(int notMoving)
                             {
-                                delete tempPlan;                                
+                                delete tempPlan;                             
                                 continue;
                             }
                         }//one possible unification
@@ -589,6 +610,7 @@ cout << rank << " " <<effortLimit <<  " " <<pq.size()<<endl;
 
             }
         }//case 2 finish
+
     }//priority depth first search
 
     return false;

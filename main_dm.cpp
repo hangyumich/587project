@@ -26,49 +26,44 @@ int main(int argc, char** argv)
     plan_communicator communicator;
 
 
+    Map newM(9,9);
+    for(unsigned i = 0; i < newM.getWidth(); ++i)
+    {
+        for(unsigned j = 0; j < newM.getHeight(); ++j)
+        {
+            if(i * j == 0 || i == newM.getWidth() - 1 || j == newM.getHeight() - 1)
+                newM.setPosition(j, i, OBSTACLE);
+        }
+    }
+        
+    newM.setPosition(3, 1, OBSTACLE);
+    newM.setPosition(3, 2, OBSTACLE);
+    newM.setPosition(4, 2, BOX);
+    //newM.setPosition(2, 3, BOX);
+    newM.setPosition(7, 7, ROBOT);
+
+    newM.setPosition(7, 1, OBSTACLE);
+    newM.setPosition(7, 1, OBSTACLE);
+        //newM.setPosition(3, 6, OBSTACLE);
+    newM.setPosition(3, 5, OBSTACLE);
+    newM.setPosition(3, 4, OBSTACLE);
+    newM.setPosition(3, 3, OBSTACLE);
+    newM.finishMap();
     
+
+    vector<Predicate> initiations = newM.map2Predicates(false);
+
+    vector<Predicate> goals;
+    goals.push_back(Predicate(Box, newM.cor2ind(2, 1)));
+        
+
+    Action first(START, -3, -2);
+    first.addList = initiations;
+    Action last(FINISH, -5, -4);
+         
     //manager
     if (rank == 0) {
-        //define the map
-        Map newM(9,9);
-        for(unsigned i = 0; i < newM.getWidth(); ++i)
-        {
-            for(unsigned j = 0; j < newM.getHeight(); ++j)
-            {
-                if(i * j == 0 || i == newM.getWidth() - 1 || j == newM.getHeight() - 1)
-                    newM.setPosition(j, i, OBSTACLE);
-            }
-        }
-        
-        newM.setPosition(3, 1, OBSTACLE);
-        newM.setPosition(3, 2, OBSTACLE);
-        newM.setPosition(4, 2, BOX);
-        //newM.setPosition(2, 3, BOX);
-        newM.setPosition(7, 7, ROBOT);
-
-        newM.setPosition(7, 1, OBSTACLE);
-        newM.setPosition(7, 1, OBSTACLE);
-        //newM.setPosition(3, 6, OBSTACLE);
-        newM.setPosition(3, 5, OBSTACLE);
-        newM.setPosition(3, 4, OBSTACLE);
-        newM.setPosition(3, 3, OBSTACLE);
-         
-     
-        newM.finishMap();
         cout << newM;
-        
-        //add initial conditions
-        vector<Predicate> initiations = newM.map2Predicates(false);
-        vector<Predicate> goals;
-        goals.push_back(Predicate(Box, newM.cor2ind(2, 1)));
-        
-
-        Action first(START, -3, -2);
-        first.addList = initiations;
-        Action last(FINISH, -5, -4);
-        
-        //initiate everything
-        vector<float> momentum = newM.map2Momentum(goals, false);
         Plan* p = new Plan();
         p->generation = 0;
         p->connection = 0;
@@ -88,17 +83,13 @@ int main(int argc, char** argv)
         double start_time = MPI_Wtime();
 
         // create (size-1)*1000 tasks
-        managerPlanSearch(pq, 20);
+        managerPlanSearch(pq, 1000);
         //planSearch(*p, 0);
 
         MPI_Status status;
         for (int i = 1; i < size; ++i) {
             Plan* plan = pq.top();
             pq.pop();
-
-            // VariableTracker vt(81);
-            // cout << "sendPlan 0" << endl;
-            // printPlan(*plan, vt, cout);
 
             communicator.sendPlan(i, i, *plan);
         }
@@ -112,10 +103,6 @@ int main(int argc, char** argv)
 
             Plan* plan = pq.top();
             pq.pop();
-
-            // VariableTracker vt(81);
-            // cout << "sendPlan " << 21-pq.size()-1 << endl;
-            // printPlan(*plan, vt, cout);
 
             communicator.sendPlan(status.MPI_SOURCE, status.MPI_TAG, *plan);
         }
@@ -135,10 +122,8 @@ int main(int argc, char** argv)
         int i=0;
         while (1) {
             plan = communicator.recvPlan(0, rank);
-
-            // VariableTracker vt(81);
-            // cout << "recvPlan " << i << endl;
-            // printPlan(*plan, vt, cout);
+            plan->steps[0].addList = initiations;
+     
 
             bool is_found = planSearch(*plan, rank);
             delete plan;
@@ -146,5 +131,7 @@ int main(int argc, char** argv)
             i++;
         }
     }
+
+    MPI_Finalize();
 }
 
