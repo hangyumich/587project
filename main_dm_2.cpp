@@ -23,9 +23,9 @@ int main(int argc, char** argv)
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-    plan_communicator communicator;
+    
 
-    Map newM(9,9);
+    Map newM(10,10);
     for(unsigned i = 0; i < newM.getWidth(); ++i)
     {
         for(unsigned j = 0; j < newM.getHeight(); ++j)
@@ -39,11 +39,11 @@ int main(int argc, char** argv)
     newM.setPosition(3, 2, OBSTACLE);
     newM.setPosition(4, 2, BOX);
     //newM.setPosition(2, 3, BOX);
-    newM.setPosition(7, 7, ROBOT);
+    newM.setPosition(8, 8, ROBOT);
 
     newM.setPosition(7, 1, OBSTACLE);
     newM.setPosition(7, 1, OBSTACLE);
-        //newM.setPosition(3, 6, OBSTACLE);
+    newM.setPosition(3, 6, OBSTACLE);
     newM.setPosition(3, 5, OBSTACLE);
     newM.setPosition(3, 4, OBSTACLE);
     newM.setPosition(3, 3, OBSTACLE);
@@ -62,6 +62,7 @@ int main(int argc, char** argv)
          
     //manager
     if (rank == 0) {
+        plan_communicator communicator;
         cout << newM;
         Plan* p = new Plan();
         p->generation = 0;
@@ -74,7 +75,7 @@ int main(int argc, char** argv)
         for(auto goal: goals)
             p->open.push_back(make_pair(goal, 1));
         p->orderings.insert(Ordering(0,1));
-        p->nextVar = 81;
+        p->nextVar = 100;
 
         priority_queue<Plan*, vector<Plan*>, planCmp> pq;
         pq.push(p);
@@ -82,7 +83,7 @@ int main(int argc, char** argv)
         double start_time = MPI_Wtime();
 
         // create (size-1)*1000 tasks
-        managerPlanSearch(pq, 1000);
+        managerPlanSearch(pq, 20);
         //planSearch(*p, 0);
 
         MPI_Status status;
@@ -94,13 +95,20 @@ int main(int argc, char** argv)
         }
 
         int result_size = 0;
+        bool is_found = false;
         while (true) {
             MPI_Recv(&result_size, 1, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
-            if (result_size == -1 || pq.empty()) {
+            if(result_size < 0){
+                is_found = true;
+                break;
+            }
+
+            if (pq.empty()) {
                 break;
             }
             for (unsigned int i = 0; i < result_size; i++) {
                 Plan* plan = communicator.recvPlan(status.MPI_SOURCE, status.MPI_TAG);
+                plan->steps[0].addList = initiations;  
                 pq.push(plan);
             }
 
@@ -120,22 +128,25 @@ int main(int argc, char** argv)
     } 
     // worker
     else {
-        MPI_Status status;
+        plan_communicator communicator;
+        MPI_Request request;
         Plan* plan;
         while (1) {
             plan = communicator.recvPlan(0, rank);
-            plan->steps[0].addList = initiations;
-     
+            plan->steps[0].addList = initiations;  
             vector<Plan> result;
+
             bool is_found = planSearchStep(*plan, rank, result);
+ 
             delete plan;
 
             int result_size = is_found ? -1 : result.size();
-            MPI_Send(&result_size, 1, MPI_INT, 0, rank, MPI_COMM_WORLD);
+            MPI_Isend(&result_size, 1, MPI_INT, 0, rank, MPI_COMM_WORLD, &request);
             if (is_found)
                 break;
+
             for (unsigned int i = 0; i < result.size(); i++) {
-                communicator.sendPlan(0, rank, *plan);
+                communicator.sendPlan(0, rank, result[i]);
             }
         }
     }
