@@ -14,6 +14,6 @@ void managerPlanSearch(priority_queue<Plan*, vector<Plan*>, planCmp>& pq, int ex
 
 bool planSearch(Plan& p, int rank);
 
-
+bool planSearchStep(Plan& plan, int rank, vector<Plan>& result);
 
 #endif
